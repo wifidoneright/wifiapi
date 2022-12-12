@@ -1,0 +1,12 @@
+Flask>=1.1.1
+idna>=2.8
+Jinja2>=2.10.1
+MarkupSafe==1.1.1
+pexpect>=4.7.0
+requests>=2.22.0
+urllib3>=1.25.3
+uwsgi>=2.0.18
+Flask-Cors==3.0.10
+aiohttp==3.7.3
+requests-cache==0.9.7
+python-dotenv==0.21.0

@@ -13,7 +13,6 @@ class Node():
         self.mac = mac
         self.status = None
         self.error = None
-    
         
 class Site():
     def __init__(self,name):
@@ -22,30 +21,32 @@ class Site():
         self.orgID = None
 
 
-def prep(nodeJSON, siteName="default"):
-    """Instantiate the objects
+def prep(apJSON, siteName="default"):
+    """Instantiate the site and AP objects
 
     Args:
         siteName (str): name of the site
-        nodeJSON (dict): list of dict with json data of nodes
+        apJSON (dict): list of dict with json data of aps
 
     """
+    if not apJSON:
+        raise ValueError('Missing AP data')
     siteObj = Site(siteName)
-    nodeObjList = []
+    apObjList = []
     try:
-        for node in nodeJSON:
-            n=Node(node["name"],node["mac"])
-            nodeObjList.append(n)
-    except ValueError() as e:
+        for ap in apJSON:
+            n=ap(ap["name"],ap["mac"])
+            apObjList.append(n)
+    except Exception as e:
         raise e
-    return siteObj,nodeObjList
+    return siteObj,apObjList
 
-def name_nodes(siteObj, nodeObjList):
-    """Change the name of a node
+def name_aps(siteObj, apObjList):
+    """Change the name of a ap
     
     Arguments:
         siteObj {Site} -- Object of the site information
-        nodeObjList {list} -- List of AP objects
+        apObjList {list} -- List of AP objects
         
     Returns: 
         [tuple] -- [lists of success and fail objects]
@@ -54,19 +55,21 @@ def name_nodes(siteObj, nodeObjList):
     failList = []
     payload = []
     successList = []
+    if siteObj.vendorSiteId == "":
+        raise ValueError("Missing vendor site id")
 
-    for nodeBatch in batch(nodeObjList, 100):
-        for nodeObj in nodeBatch:
+    for apBatch in batch(apObjList, 100):
+        for apObj in apBatch:
             payload.append({
-                "mac": nodeObj.mac,
-                "name": nodeObj.name})
+                "mac": apObj.mac,
+                "name": apObj.name})
             url = f"/api/v1/sites/{siteObj.vendorSiteId}/devices/import"
-            logging.info(f"Naming {nodeObj.name}: {url}")
+            logging.info(f"Naming {apObj.name}: {url}")
             respData = send_request( 
                 url=url, requestType="POST", payload=json.dumps(payload))
 
-            successList = list(set([*successList, *getSuccessList(respData,nodeObjList)]))
-            failList = list(set([*failList, *getErrList(respData,nodeObjList)]))
+            successList = list(set([*successList, *getSuccessList(respData,apObjList)]))
+            failList = list(set([*failList, *getErrList(respData,apObjList)]))
     return successList, failList
 
 def send_request(url="", requestType="GET", payload=""):
@@ -97,8 +100,7 @@ def send_request(url="", requestType="GET", payload=""):
         raise e
     except Exception as e:
         logging.error(e)
-        abort()
-
+        return e
 
 
 def getSuccessList(respData,nodeObjList):
@@ -130,8 +132,31 @@ def batch(iterable, n=1):
 	for ndx in range(0, l, n):
 		yield iterable[ndx:min(ndx + n, l)]
 
+def displayObjs(objList):
+	"""Prepair objList given for returning in the request
+	
+	Arguments:
+		objList {} -- list of objects
+	"""
+	objDictList = []
+	if isinstance(objList, list):
+		for obj in objList:
+			if isinstance(obj, Node):
+				objDictList.append(vars(obj))
+			elif isinstance(obj, Site):
+				objDictList.append(vars(obj))
+			else:
+				objDictList.append(obj)
+	else:
+		if isinstance(objList, Node):
+			objDictList.append(vars(objList))
+		elif isinstance(objList, Site):
+			objDictList.append(vars(objList))
+		else:
+			objDictList.append(objList)
+	return objDictList 
 
-def name_nodes(siteObj, nodeObjList):
+def name_aps(siteObj, nodeObjList):
     """Change the name of a node
     
     Arguments:
@@ -163,9 +188,9 @@ def name_nodes(siteObj, nodeObjList):
     return successList, failList
 
 def main():
-    nodeJSON=[{"name":"AP0001","mac":"de:ad:be:ef:00:01"}]
-    site, nodes = prep(nodeJSON)
-    succcesses,failed = name_nodes(site,nodes)
+    apJSON=[{"name":"AP0001","mac":"de:ad:be:ef:00:01"}]
+    site, aps = prep(apJSON)
+    succcesses,failed = name_aps(site,aps)
     print("successes")
     pprint(succcesses)
     print()
